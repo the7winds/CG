@@ -6,10 +6,14 @@ using UnityEngine;
 using F = System.Func<UnityEngine.Vector3, float>;
 
 [RequireComponent(typeof(MeshFilter))]
+[RequireComponent(typeof(MeshRenderer))]
 public class MeshGenerator : MonoBehaviour
 {
+    public Shader shader;
+
     private MeshFilter _filter;
     private Mesh _mesh;
+    private MeshRenderer _renderer;
 
     private class MarchingCubes
     {
@@ -132,7 +136,8 @@ public class MeshGenerator : MonoBehaviour
 
                 foreach (var tr in triangles)
                 {
-                    for (var i = 0; i < 3; i++)
+                    var trOder = new int[] { 2, 1, 0 };
+                    foreach (var i in trOder)
                     {
                         var (u, v) = _edgeToNeighbours[tr[i]];
                         var e = Neighbours(c, tr[i]);
@@ -224,6 +229,8 @@ public class MeshGenerator : MonoBehaviour
         // _mesh = _filter.mesh = new Mesh();
         _mesh = _filter.mesh = Generate();
         _mesh.MarkDynamic();
+
+        GetComponent<MeshRenderer>().material = new Material(Shader.Find("Custom/BrokenShader"));
     }
 
     /// <summary>

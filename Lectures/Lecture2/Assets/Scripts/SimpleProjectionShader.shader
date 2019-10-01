@@ -2,8 +2,10 @@
 {
     Properties
     {
+		_XTex("Albedo (RGB)", 2D) = "white" {}
+		_YTex("Albedo (RGB)", 2D) = "white" {}
+		_ZTex("Albedo (RGB)", 2D) = "white" {}
         _Color ("Color", Color) = (1,1,1,1)
-        _MainTex ("Albedo (RGB)", 2D) = "white" {}
         _Glossiness ("Smoothness", Range(0,1)) = 0.5
         _Metallic ("Metallic", Range(0,1)) = 0.0
     }
@@ -27,7 +29,7 @@
             struct v2f
             {
                 float4 pos : SV_POSITION;
-                float2 uv : TEXCOORD0;
+				float3 x : ORIG;
                 fixed3 normal : NORMAL;
             };
 
@@ -35,22 +37,34 @@
             {
                 v2f o;
                 o.pos = UnityObjectToClipPos(v.vertex);
-                o.uv = v.texcoord;
+				o.x = v.vertex;
                 o.normal = UnityObjectToWorldNormal(v.normal);
                 return o;
             }
             
-            sampler2D _MainTex;
+            sampler2D _XTex;
+			sampler2D _YTex;
+			sampler2D _ZTex;
 
-            fixed4 frag (v2f i) : SV_Target
-            {
-                half nl = max(0, dot(i.normal, _WorldSpaceLightPos0.xyz));
-                half3 light = nl * _LightColor0;
-                light += ShadeSH9(half4(i.normal,1));
-                
-                fixed4 col = tex2D(_MainTex, i.uv);
-                col.rgb *= light;
-                return col;
+			fixed4 frag(v2f i) : SV_Target
+			{
+				half nl = max(0, dot(i.normal, _WorldSpaceLightPos0.xyz));
+				half3 light = nl * _LightColor0;
+				light += ShadeSH9(half4(i.normal, 1));
+
+				float3 x = i.x;
+				float3 n = i.normal;
+
+				float4 cx = tex2D(_XTex, x.zy);
+				float4 cy = tex2D(_YTex, x.xz);
+				float4 cz = tex2D(_ZTex, x.xy);
+
+				n = n * n;
+                float3 col = n.x * cx + n.y * cy + n.z * cz;
+
+				col *= light;
+
+				return float4(col, 1);
             }
             ENDCG
         }
