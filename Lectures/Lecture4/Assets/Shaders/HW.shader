@@ -42,11 +42,12 @@
 
 			uint Hash(uint s)
 			{
+				uint ss = s;
 				s ^= 2747636419u;
 				s *= 2654435769u;
 				s ^= s >> 16;
 				s *= 2654435769u;
-				s ^= s >> 16;
+				s ^= ss << 16;
 				s *= 2654435769u;
 				return s;
 			}
@@ -62,21 +63,29 @@
 
 			float3 randomSphere(uint i)
 			{
-				float r1 = uniformR(i + 0, -1, 1);
-				float r2 = uniformR(i + 1, -1, 1);
-				float r3 = uniformR(i + 2, -1, 1);
+				i *= 3;
+				float r1 = uniformR(i + 0, 0, 3.14);
+				float r2 = uniformR(i + 1, 0, 6.28);
 
-				float x = r1;
-				float y = r2 * sqrt(1 - x * x);
-				float z = 0;
+				float x = sin(r1) * cos(r2);
+				float y = sin(r1) * sin(r2);
+				float z = cos(r1);
 
-				if (r3 > 0) {
-					z = sqrt(1 - y * y - x * x);
-				} else {
-					z = -sqrt(1 - y * y - x * x);
+				float3 v = float3(x, y, z);
+
+				return v;
+			}
+
+			float3 randomHalfSphere(uint i, float3 n, float3 dir)
+			{
+				float3 v = randomSphere(i);
+				v = normalize(v);
+
+				if (dot(v, n) < 0) {
+					return -v;
 				}
 
-				return float3(x, y, z);
+				return v;
 			}
 
 			float3 reflect(float3 v, float3 n)
@@ -86,15 +95,14 @@
 
 			float mirror(float3 dir, float3 w, float3 n)
 			{
-				dir = reflect(dir, n);
+				dir = -reflect(dir, n);
 				dir = normalize(dir);
 				w = normalize(w);
 
-				float dist = dot(dir, -w);
-				dist *= dist;
+				float dist = dot(dir, w);
 
-				if (dist > 1-1e-6) {
-					return _SamplesN;
+				if (dist > 0.7) {
+					return 5 / float(_SamplesN);
 				}
 
 				return 0;
@@ -107,13 +115,13 @@
 				l = normalize(l);
 				w = normalize(w);
 
-				float dist = dot(l, -w);
-				return dist * dist;
+				// float dist = dot(l, -w);
+				return 1 / float(_SamplesN);
 			}
 
 			float4 incommingLight(float3 l)
 			{
-				l = normalize(-l);
+				l = normalize(l);
 				l = 2 * l + 1;
 				return texCUBE(_MainTex, l);
 			}
@@ -130,16 +138,13 @@
 			float4 light(float3 dir, float3 n)
 			{
 				float4 r = 0;
-				float3 rDir = -reflect(dir, n);
-
-				r += incommingLight(rDir) * F(dir, rDir, n);
-
-				for (int i = 0; i < _SamplesN-1; i++) {
-					float3 wr = randomSphere(3 * i);
-					r += incommingLight(wr) * F(dir, wr, n);
+				
+				for (int i = 0; i < _SamplesN; i++) {
+					float3 wr = randomHalfSphere(i, n, -reflect(dir, n));
+					r += incommingLight(wr) * F(dir, -wr, n) * dot(wr, n);
 				}
 
-				r /= (float)_SamplesN;
+				// r /= (float)_SamplesN;
 				// r *= dot(_Source, n);
 
 				// debug
@@ -160,8 +165,8 @@
 
 			fixed4 frag(v2f i) : SV_Target
 			{
-				return light(i.look, i.normal);
 				// return texCUBE(_MainTex, reflect(i.look, i.normal));
+				return light(i.look, i.normal);
             }
             ENDCG
         }
