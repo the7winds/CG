@@ -45,6 +45,42 @@ float3 SampleColor(float3 direction)
     return tex.rgb;
 }
 
+float3 SampleDir(uint seed)
+{
+	const float u = Random(2 * seed);
+	const float v = Random(2 * seed + 1);
+	const float phi = u * PI * 2;
+	const float cosTheta = 2 * v - 1;
+	const float sinTheta = sqrt(1 - cosTheta * cosTheta);
+	const float3 dir = float3(
+		cos(phi) * sinTheta,
+		sin(phi) * sinTheta,
+		cosTheta
+		);
+
+	return normalize(dir);
+}
+
+float4 SH_0_1(float3 dir)
+{
+	const float x = -sqrt(3) / 2.0 / sqrt(PI) * dir.x;
+	const float y = sqrt(3) / 2.0 / sqrt(PI) * dir.y;
+	const float z = -sqrt(3) / 2.0 / sqrt(PI) * dir.z;
+	const float w = 1 / 2.0 / sqrt(PI);
+
+	return float4(x, y, z, w);
+}
+
+float4 SH_2(float3 dir)
+{
+	const float x = sqrt(15) / 2.0 / sqrt(PI) * dir.x * dir.y; // -2
+	const float y = -sqrt(15) / 2.0 / sqrt(PI) * dir.y * dir.z; // -1
+	const float z = -sqrt(15) / 2.0 / sqrt(PI) * dir.x * dir.z; // 1
+	const float w = sqrt(5) / 4.0 / sqrt(PI) * (3.0 * dir.z * dir.z - 1); // 0
+
+	return float4(x, y, z, w);
+}
+
 [numthreads(1024, 1, 1)]
 void ComputeHarmonics(uint id : SV_DispatchThreadID)
 {
@@ -67,6 +103,26 @@ void ComputeHarmonics(uint id : SV_DispatchThreadID)
     // TASK: project light from _Env to spherical harmonic coefficients;
     // Multiply that by the same polynom coeffients, because they appear in the projection of max(0, cos(theta)) 
     // and store them in results[]
+
+	const float part = 1 / float(SAMPLES);
+
+	for (int i = 0; i < SAMPLES; i++) {
+		const uint seed = SAMPLES * id + i;
+		const float3 dir = SampleDir(seed);
+		const float3 col = SampleColor(dir);
+
+		const float4 sh_0_1 = SH_0_1(dir) * part;
+		const float4 sh_2 = SH_2(dir) * part;
+		const float sh_2_rgb = sqrt(15) / 4 / sqrt(PI) * (dir.x * dir.x - dir.y * dir.y) * part; // 0
+
+		results[0] += col.r * sh_0_1;
+		results[1] += col.g * sh_0_1;
+		results[2] += col.b * sh_0_1;
+		results[3] += col.r * sh_2;
+		results[4] += col.g * sh_2;
+		results[5] += col.b * sh_2;
+		results[6] += float4(col, 0) * sh_2_rgb;
+	}
     
     for (int c = 0; c < 3; c++)
     {
@@ -90,4 +146,5 @@ void ComputeHarmonics(uint id : SV_DispatchThreadID)
     SH_2_g[id] = results[4];
     SH_2_b[id] = results[5];    
     
+	SH_2_rgb[id] = results[6];
 }
