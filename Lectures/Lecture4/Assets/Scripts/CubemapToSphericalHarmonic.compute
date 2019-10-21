@@ -63,20 +63,20 @@ float3 SampleDir(uint seed)
 
 float4 SH_0_1(float3 dir)
 {
-	const float x = -sqrt(3) / 2.0 / sqrt(PI) * dir.x;
-	const float y = sqrt(3) / 2.0 / sqrt(PI) * dir.y;
-	const float z = -sqrt(3) / 2.0 / sqrt(PI) * dir.z;
-	const float w = 1 / 2.0 / sqrt(PI);
+	const float x = 3 / 4.0 / PI * dir.x;
+	const float y = 3/ 4.0 / PI * dir.y;
+	const float z = 3 / 4.0 / PI * dir.z;
+	const float w = 1 / 4.0 / PI;
 
 	return float4(x, y, z, w);
 }
 
 float4 SH_2(float3 dir)
 {
-	const float x = sqrt(15) / 2.0 / sqrt(PI) * dir.x * dir.y; // -2
-	const float y = -sqrt(15) / 2.0 / sqrt(PI) * dir.y * dir.z; // -1
-	const float z = -sqrt(15) / 2.0 / sqrt(PI) * dir.x * dir.z; // 1
-	const float w = sqrt(5) / 4.0 / sqrt(PI) * (3.0 * dir.z * dir.z - 1); // 0
+	const float x = 15 / 4.0 / PI * dir.x * dir.y; // -2
+	const float y = 15 / 4.0 / PI * dir.y * dir.z; // -1
+	const float z = 15 / 4.0 / PI * dir.x * dir.z; // 1
+	const float w = 5 / 16.0 / PI * (3.0 * dir.z * dir.z - 1); // 0
 
 	return float4(x, y, z, w);
 }
@@ -104,16 +104,15 @@ void ComputeHarmonics(uint id : SV_DispatchThreadID)
     // Multiply that by the same polynom coeffients, because they appear in the projection of max(0, cos(theta)) 
     // and store them in results[]
 
-	const float part = 1 / float(SAMPLES);
 
 	for (int i = 0; i < SAMPLES; i++) {
 		const uint seed = SAMPLES * id + i;
 		const float3 dir = SampleDir(seed);
 		const float3 col = SampleColor(dir);
 
-		const float4 sh_0_1 = SH_0_1(dir) * part;
-		const float4 sh_2 = SH_2(dir) * part;
-		const float sh_2_rgb = sqrt(15) / 4 / sqrt(PI) * (dir.x * dir.x - dir.y * dir.y) * part; // 0
+		const float4 sh_0_1 = SH_0_1(dir);
+		const float4 sh_2 = SH_2(dir);
+		const float sh_2_rgb = 15 / 16.0 / PI * (dir.x * dir.x - dir.y * dir.y); // 0
 
 		results[0] += col.r * sh_0_1;
 		results[1] += col.g * sh_0_1;
@@ -122,6 +121,10 @@ void ComputeHarmonics(uint id : SV_DispatchThreadID)
 		results[4] += col.g * sh_2;
 		results[5] += col.b * sh_2;
 		results[6] += float4(col, 0) * sh_2_rgb;
+	}
+
+	for (i = 0; i < 7; i++) {
+		results[i] *= PI / float(SAMPLES);
 	}
     
     for (int c = 0; c < 3; c++)
